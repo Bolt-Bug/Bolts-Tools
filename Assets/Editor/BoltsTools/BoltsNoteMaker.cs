@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -11,11 +10,15 @@ namespace editor.BoltsTools
     {
         // State
         List<StickyNote> notes = new();
-        const string SAVE_PATH = "Assets/Editor/BoltsTools/BoltsNotes.json";
+        const string SAVE_DIR = "Assets/Editor/BoltsTools/Notes";
+        const string LINES_PATH = "Assets/Editor/BoltsTools/Notes/Lines.json";
         StickyNote resizingNote;
         Vector2 resizeStart;
         Rect resizeStartRect;
+        StickyNote draggingNote;
+        Vector2 dragOffset;
         
+        // Lines
         StickyNote lineSourceNote;
         bool isDrawingLine;
         List<NoteLine> lines = new();
@@ -30,6 +33,14 @@ namespace editor.BoltsTools
         bool showContextMenu;
         Vector2 contextMenuPos;
         Rect contextMenuRect;
+        
+        // Note Context Menu
+        bool showNoteContextMenu;
+        Vector2 noteContextMenuPos;
+        Rect noteContextMenuRect;
+        StickyNote noteContextMenuTarget;
+        
+        const float TAB_HEIGHT = 25.5f;
 
         readonly Color[] noteColors =
         {
@@ -49,13 +60,7 @@ namespace editor.BoltsTools
 
         void OnEnable()
         {
-            if (File.Exists(SAVE_PATH))
-            {
-                var json = File.ReadAllText(SAVE_PATH);
-                var wrapper = JsonUtility.FromJson<NoteListWrapper>(json);
-                notes = wrapper?.notes ?? new List<StickyNote>();
-                lines = wrapper?.lines ?? new List<NoteLine>();
-            }
+            Refresh();
         }
 
         void OnDisable()
@@ -65,28 +70,84 @@ namespace editor.BoltsTools
 
         void SaveNotes()
         {
-            var json = JsonUtility.ToJson(new NoteListWrapper { notes = notes, lines = lines}, true);
-            File.WriteAllTextAsync(SAVE_PATH, json);
+            if (!Directory.Exists(SAVE_DIR))
+                Directory.CreateDirectory(SAVE_DIR);
+
+            foreach (var file in Directory.GetFiles(SAVE_DIR, "*.json"))
+                if(file != LINES_PATH.Replace("/", Path.DirectorySeparatorChar.ToString()))
+                {
+                    File.Delete(file);
+                    File.Delete(file + ".meta");
+                }
+            var nameCounts = new Dictionary<string, int>();
+            foreach (var note in notes)
+            {
+                var baseName = string.IsNullOrWhiteSpace(note.name) ? "Sticky Note" : note.name;
+                nameCounts.TryAdd(baseName, 0);
+                nameCounts[baseName]++;
+
+                var count = nameCounts[baseName];
+                var fileName = count == 1 ? baseName : $"{baseName} {count}";
+                var path = Path.Combine(SAVE_DIR, $"{fileName}.json");
+                
+                File.WriteAllText(path, JsonUtility.ToJson(note, true));
+            }
+
+            var wrapper = new NoteListWrapper { lines = lines };
+            File.WriteAllText(LINES_PATH, JsonUtility.ToJson(wrapper, true));
+            
             AssetDatabase.Refresh();
+        }
+
+        void Refresh()
+        {
+            notes = new List<StickyNote>();
+            lines = new List<NoteLine>();
+            
+            if(!Directory.Exists(SAVE_DIR)) return;
+
+            // Load All Notes
+            foreach (var file in Directory.GetFiles(SAVE_DIR, "*.json"))
+            {
+                var normalized = file.Replace("\\", "/");
+                if(normalized == LINES_PATH.Replace("\\", "/")) continue;
+
+                var note = JsonUtility.FromJson<StickyNote>(File.ReadAllText(file));
+                if(note != null) notes.Add(note);
+            }
+
+            foreach (var note in notes)
+            {
+                foreach (var targetId in note.connectedIDs)
+                {
+                    // Skip If The TTarget Note Doesn't Exist
+                    if(!notes.Exists(n => n.id == targetId)) continue;
+
+                    // Skip Duplicates
+                    bool exists = lines.Exists(l =>
+                        (l.sourceId == note.id && l.targetId == targetId) ||
+                        (l.sourceId == targetId && l.targetId == note.id));
+                    
+                    if(!exists)
+                        lines.Add((new NoteLine{sourceId = note.id, targetId = targetId}));
+                }
+            }
+            
+            Repaint();
         }
 
         void OnGUI()
         {
             DrawGrid();
             
-            GUI.EndClip();
-            var canvasRect = new Rect(0, 0, position.width, position.height);
-            GUI.BeginClip(canvasRect);
-
-            var matrix = GUI.matrix;
-            GUIUtility.ScaleAroundPivot(Vector2.one * zoom, Vector2.zero);
-            GUI.matrix = Matrix4x4.TRS(pan * zoom, Quaternion.identity, Vector3.one) * GUI.matrix;
-
+            GUI.BeginGroup(new Rect(pan.x * zoom, pan.y * zoom - TAB_HEIGHT,
+                100000, 100000));
+            
             foreach (var line in lines)
             {
-                if(line.sourceIndex >= notes.Count || line.targetIndex >= notes.Count) continue;
-                var a = notes[line.sourceIndex];
-                var b = notes[line.targetIndex];
+                var a = notes.Find(n => n.id == line.sourceId);
+                var b = notes.Find(n => n.id == line.targetId);
+                if(a == null || b == null) continue;
                 DrawGradientLine(new Vector2(a.rect.center.x, a.rect.center.y),
                     new Vector2(b.rect.center.x, b.rect.center.y),
                     a.color, b.color);
@@ -94,7 +155,7 @@ namespace editor.BoltsTools
 
             if (isDrawingLine && lineSourceNote != null)
             {
-                var mouseInCanvas = (Event.current.mousePosition / zoom) - pan;
+                var mouseInCanvas = ScreenToCanvas(Event.current.mousePosition);
                 DrawGradientLine(
                     new Vector2(lineSourceNote.rect.center.x, lineSourceNote.rect.center.y),
                     mouseInCanvas,
@@ -104,13 +165,35 @@ namespace editor.BoltsTools
             
             foreach (var note in notes)
                 DrawStickyNote(note);
-
-            GUI.matrix = matrix;
+            
+            GUI.EndGroup();
             
             HandleEvents();
-            
+
             if(showContextMenu)
+            {
                 DrawContextMenu();
+
+                if (!contextMenuRect.Contains(Event.current.mousePosition))
+                    showContextMenu = false;
+            }
+            
+            if(showNoteContextMenu)
+            {
+                DrawNoteContextMenu();
+
+                if (Event.current.type == EventType.MouseDown && !noteContextMenuRect.Contains(Event.current.mousePosition))
+                    showNoteContextMenu = false;
+            }
+            
+            var saveBtn = new Rect(8, 8, 70, 22);
+            if(GUI.Button(saveBtn, "💾 Save"))
+                SaveNotes();
+
+            var refreshBtn = new Rect(8, 36, 70, 22);
+            var refreshContent = new GUIContent(" Refresh", EditorGUIUtility.IconContent("Refresh").image);
+            if(GUI.Button(refreshBtn, refreshContent))
+                Refresh();
         }
 
         void DrawGrid()
@@ -129,7 +212,7 @@ namespace editor.BoltsTools
                 EditorGUI.DrawRect(new(x, 0,1, position.height), color);
             
             float offsetY = pan.y * zoom % spacing;
-            for(float y = offsetY; y < position.width; y += spacing)
+            for(float y = offsetY; y < position.height; y += spacing)
                 EditorGUI.DrawRect(new(0,y,position.width, 1), color);
         }
 
@@ -143,27 +226,29 @@ namespace editor.BoltsTools
             EditorGUI.DrawRect(note.rect, note.color);
             
             // Header Bar
-            var header = new Rect(note.rect.x, note.rect.y, note.rect.width, 24);
+            var header = new Rect(note.rect.x, note.rect.y, note.rect.width, 38);
             EditorGUI.DrawRect(header, new(0, 0, 0, 0.15f));
             
             // Label In Header
-            GUI.Label(new Rect(header.x + 6, header.y + 4, header.width - 30, 18),
-                "Sticky Note", EditorStyles.boldLabel);
+            var nameFieldStyle = new GUIStyle(EditorStyles.textField) { fontStyle = FontStyle.Bold, fontSize = 12 };
+            var nameRect = new Rect(header.x + 6, header.y + 17, header.width - 34, 18);
+            var newName = GUI.TextField(nameRect, note.name, nameFieldStyle);
+            note.name = newName;
+            if(Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return)
+                SaveNotes();
             
             // Delete Button
-            var deleteBtn = new Rect(note.rect.xMax - 22, note.rect.y + 3, 18, 18);
-            if (GUI.Button(deleteBtn, "X", EditorStyles.label))
+            var deleteBtn = new Rect(note.rect.xMax - 22, note.rect.y + 17, 18, 18);
+            var deleteStyle = new GUIStyle(EditorStyles.label)
             {
-                int idx = notes.IndexOf(note);
-                lines.RemoveAll(l => l.sourceIndex == idx || l.targetIndex == idx);
-                lines = lines.Select(l => new NoteLine
-                {
-                    sourceIndex = l.sourceIndex > idx ? l.sourceIndex - 1 : l.sourceIndex,
-                    targetIndex = l.targetIndex > idx ? l.targetIndex - 1 : l.targetIndex
-                }).ToList();
-                
+                normal = { textColor = Color.black },
+                hover = { textColor = new Color(0.6f, 0, 0) }
+            };
+            if (GUI.Button(deleteBtn, "X", deleteStyle))
+            {
                 notes.Remove(note);
-                
+
+                lines.RemoveAll(l => l.sourceId == note.id || l.targetId == note.id);
                 SaveNotes();
                 Repaint();
                 GUIUtility.ExitGUI();
@@ -171,16 +256,16 @@ namespace editor.BoltsTools
             }
             
             // Text Area
-            var textArea = new Rect(note.rect.x + 4, note.rect.y + 28, note.rect.width - 8, note.rect.height - 36);
+            var textArea = new Rect(note.rect.x + 4, note.rect.y + 42, note.rect.width - 8, note.rect.height - 50);
             var style = new GUIStyle(EditorStyles.textArea)
             {
                 wordWrap = true,
                 fontSize = 12,
             };
             var newText = GUI.TextArea(textArea, note.text, style);
-            if (newText != note.text)
+            note.text = newText;
+            if(Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return)
             {
-                note.text = newText;
                 SaveNotes();
             }
             
@@ -203,15 +288,12 @@ namespace editor.BoltsTools
 
             if (Event.current.type == EventType.ContextClick && note.rect.Contains(Event.current.mousePosition))
             {
-                // var noteIndex = notes.IndexOf(note);
-                var menu = new GenericMenu();
-                menu.AddItem(new GUIContent("Draw Line"), false, () =>
-                {
-                    lineSourceNote = note;
-                    isDrawingLine = true;
-                    showContextMenu = false;
-                });
-                menu.ShowAsContext();
+                var screenPos = CanvasToScreen(new Vector2(note.rect.center.x, note.rect.y));
+                
+                noteContextMenuRect = new Rect(screenPos.x - 90, screenPos.y - 36, 180, 36);
+                noteContextMenuTarget = note;
+                showNoteContextMenu = true;
+                showContextMenu = false;
                 Event.current.Use();
             }
             
@@ -229,15 +311,14 @@ namespace editor.BoltsTools
                 if (e.type == EventType.MouseDown && e.button == 0 && note.rect.Contains(e.mousePosition) &&
                     note != lineSourceNote)
                 {
-                    int srcIdx = notes.IndexOf(lineSourceNote);
-                    int dstIdx = notes.IndexOf(note);
                     bool exists = lines.Exists(l =>
-                        (l.sourceIndex == srcIdx && l.targetIndex == dstIdx) ||
-                        (l.sourceIndex == dstIdx && l.targetIndex == srcIdx));
+                        (l.sourceId == lineSourceNote.id && l.targetId == note.id ||
+                         (l.sourceId == note.id && l.targetId == lineSourceNote.id)));
 
                     if (!exists)
                     {
-                        lines.Add(new NoteLine { sourceIndex = srcIdx, targetIndex = dstIdx });
+                        lines.Add(new NoteLine { sourceId = lineSourceNote.id, targetId = note.id });
+                        lineSourceNote.connectedIDs.Add(note.id);
                         SaveNotes();
                     }
 
@@ -269,12 +350,12 @@ namespace editor.BoltsTools
                         Mathf.Max(100, resizeStartRect.height + delta.y));
                     Repaint();
                     e.Use();
-                    SaveNotes();
                 }
 
                 if (e.type == EventType.MouseUp)
                 {
                     resizingNote = null;
+                    SaveNotes();
                     e.Use();
                 }
             }
@@ -283,29 +364,50 @@ namespace editor.BoltsTools
             if (e.type == EventType.MouseDown && header.Contains(mousePos) && e.button == 0
                 && !handle.Contains(mousePos))
             {
+                draggingNote = note;
+                dragOffset = mousePos - new Vector2(note.rect.x, note.rect.y);
                 GUIUtility.hotControl = GUIUtility.GetControlID(FocusType.Passive);
                 e.Use();
             }
 
-            if (e.type == EventType.MouseDrag && GUIUtility.hotControl != 0
-                                              && header.Contains(new Rect(note.rect.x, note.rect.y, note.rect.width, 24)
-                                                  .Contains(mousePos)
-                                                  ? mousePos
-                                                  : Vector2.one * -999))
+            // Drag The Note
+            if (e.type == EventType.MouseDrag && draggingNote == note)
             {
-                note.rect.position += e.delta / zoom;
+                var newPos = mousePos - dragOffset;
+                note.rect.x = Mathf.Max(0, newPos.x);
+                note.rect.y = Mathf.Max(0, newPos.y);
                 Repaint();
                 e.Use();
+            }
+
+            // Stops Dragging Note
+            if (e.type == EventType.MouseUp && draggingNote == note)
+            {
+                draggingNote = null;
                 SaveNotes();
+                e.Use();
             }
         }
 
         void HandleEvents()
         {
             var e = Event.current;
-
+            
+            var canvasMouse = ScreenToCanvas(e.mousePosition);
+            bool clickedNote = notes.Exists(n => n.rect.Contains(canvasMouse));
+            
             switch (e.type)
             {
+                // Focus On Noting
+                case EventType.MouseDown when e.button == 0:
+                    if (!clickedNote)
+                    {
+                        GUI.FocusControl(null);
+                        Repaint();
+                    }
+                    break;
+                
+                // Bring Up The Context Menu
                 case EventType.ContextClick:
                 case EventType.MouseDown when e.button == 1:
                     contextMenuPos = e.mousePosition;
@@ -314,49 +416,96 @@ namespace editor.BoltsTools
                     e.Use();
                     break;
                 
+                // Start Panning
                 case EventType.MouseDown when e.button == 2 || (e.button == 0 && e.alt):
                     isPanning = true;
                     lastMousePos = e.mousePosition;
                     e.Use();
                     break;
                 
+                // Panning
                 case EventType.MouseDrag when isPanning:
                     pan += (e.mousePosition - lastMousePos) / zoom;
+                    pan.x = Mathf.Min(pan.x, 0);
+                    pan.y = Mathf.Min(pan.y, 0);
                     lastMousePos = e.mousePosition;
                     Repaint();
                     e.Use();
                     break;
                 
+                // Stop Panning
                 case EventType.MouseUp when isPanning:
                     isPanning = false;
                     e.Use();
                     break;
                 
+                // Zoom
                 case EventType.ScrollWheel:
-                    var zoomDelta = e.delta.y * 0.05f;
+                    var zoomDelta = -e.delta.y * 0.05f;
                     zoom = Mathf.Clamp(zoom + zoomDelta, 0.3f, 3f);
                     Repaint();
                     e.Use();
                     break;
                 
+                // Stop Showing Context Menu
                 case EventType.MouseDown when showContextMenu && !contextMenuRect.Contains(e.mousePosition):
                     showContextMenu = false;
                     Repaint();
                     break;
                 
+                // Stop Drawing Line
                 case EventType.KeyDown when e.keyCode == KeyCode.Escape && isDrawingLine:
                     isDrawingLine = false;
                     lineSourceNote = null;
+                    showNoteContextMenu = false;
                     Repaint();
                     e.Use();
+                    break;
+                
+                // Stop Showing Note Context Menu
+                case EventType.MouseDown when showNoteContextMenu && !noteContextMenuRect.Contains(e.mousePosition):
+                    showNoteContextMenu = false;
+                    Repaint();
                     break;
             }
         }
 
+        void DrawNoteContextMenu()
+        {
+            // Background
+            EditorGUI.DrawRect(noteContextMenuRect, new Color(0.22f, 0.22f, 0.22f));
+            
+            // Border
+            var border = new Color(0.45f, 0.45f, 0.45f);
+            EditorGUI.DrawRect(new Rect(noteContextMenuRect.x, noteContextMenuRect.y, noteContextMenuRect.width, 1), border);
+            EditorGUI.DrawRect(new Rect(noteContextMenuRect.x, noteContextMenuRect.yMax - 1, noteContextMenuRect.width, 1), border);
+            EditorGUI.DrawRect(new Rect(noteContextMenuRect.x, noteContextMenuRect.y, 1, noteContextMenuRect.height), border);
+            EditorGUI.DrawRect(new Rect(noteContextMenuRect.xMax - 1, noteContextMenuRect.y, 1, noteContextMenuRect.height), border);
+
+            var btnRect = new Rect(noteContextMenuRect.x + 1, noteContextMenuRect.y + 1, noteContextMenuRect.width - 2,
+                34);
+            var style = new GUIStyle(EditorStyles.label)
+            {
+                normal = { textColor = Color.white },
+                hover = { textColor = Color.white, background = MakeTex(1, 1, new Color(0.3f, 0.5f, 0.9f, 0.5f)) },
+                padding = new RectOffset(10, 0, 0, 0),
+                fontSize = 12
+            };
+
+            if (GUI.Button(btnRect, "📏  Draw Line", style))
+            {
+                lineSourceNote = noteContextMenuTarget;
+                isDrawingLine = true;
+                showNoteContextMenu = false;
+                Repaint();
+            }
+        }
+        
         void DrawContextMenu()
         {
             // Background
             EditorGUI.DrawRect(contextMenuRect, new Color(0.22f, 0.22f, 0.22f));
+            
             // Border
             var border = new Color(0.45f, 0.45f, 0.45f);
             EditorGUI.DrawRect(new Rect(contextMenuRect.x, contextMenuRect.y, contextMenuRect.width, 1), border);
@@ -372,12 +521,12 @@ namespace editor.BoltsTools
                 padding = new RectOffset(10, 0, 0, 0),
                 fontSize = 12
             };
-
+            
             if (GUI.Button(btnRect, "📝  Create Sticky Note", style))
             {
-                var canvasPos = (contextMenuPos / zoom) - pan;
+                var canvasPos = ScreenToCanvas(contextMenuPos);
                 notes.Add(new StickyNote(canvasPos));
-                
+                SaveNotes();
                 showContextMenu = false;
                 Repaint();
             }
@@ -408,16 +557,28 @@ namespace editor.BoltsTools
 
             Handles.color = handelColor;
         }
+
+        Vector2 ScreenToCanvas(Vector2 screenPos) =>
+            new (screenPos.x / zoom - pan.x, screenPos.y / zoom - pan.y);
+
+        Vector2 CanvasToScreen(Vector2 canvasPos) =>
+            new ((canvasPos.x + pan.x) * zoom, (canvasPos.y + pan.y) * zoom);
         
         [Serializable]
         public class StickyNote
         {
+            public string id;
+            public List<string> connectedIDs;
+            public string name;
             public Rect rect;
             public string text;
             public Color color;
             
             public StickyNote(Vector2 position)
             {
+                id = Guid.NewGuid().ToString();
+                connectedIDs = new List<string>();
+                name = "Sticky Note";
                 rect = new Rect(position.x, position.y, 200, 150);
                 text = "";
                 color = new Color(1f, 0.96f, 0.6f);
@@ -427,15 +588,14 @@ namespace editor.BoltsTools
         [Serializable]
         public class NoteListWrapper
         {
-            public List<StickyNote> notes;
             public List<NoteLine> lines;
         }
         
         [Serializable]
         public class NoteLine
         {
-            public int sourceIndex;
-            public int targetIndex;
+            public string sourceId;
+            public string targetId;
         }
     }
 }

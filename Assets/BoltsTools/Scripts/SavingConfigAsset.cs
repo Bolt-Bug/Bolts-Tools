@@ -12,7 +12,6 @@ namespace BoltsTools
         public bool usePersistentDataPath = true;
         public bool useEncryption;
 
-        // [HideInInspector]
         public List<SaveFileDefaults> defaults = new();
 
         public string GetFullPath(int saveFile = 0)

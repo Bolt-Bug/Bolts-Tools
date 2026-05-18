@@ -29,7 +29,12 @@ namespace editor.BoltsTools
             config = Resources.Load<BoltsDebugMenuSettings>("DebugSettings");
 
             if (config == null)
+            {
                 Debug.LogError("Could Not Find Debug Asset");
+                return;
+            }
+            
+            serializedObject = new SerializedObject(config);
         }
         
         void OnGUI()
@@ -42,8 +47,6 @@ namespace editor.BoltsTools
                 EditorGUILayout.HelpBox("Debug Asset Not Found", MessageType.Error);
                 return;
             }
-
-            serializedObject = new SerializedObject(config);
             
             serializedObject.Update();
 

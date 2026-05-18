@@ -335,36 +335,47 @@ namespace editor.BoltsTools
 
         void OnGUI()
         {
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Save Type");
             saveType = (SaveTypes)EditorGUILayout.EnumPopup(saveType);
+            EditorGUILayout.EndHorizontal();
             
             valueName = EditorGUILayout.TextField("Value Name",valueName);
             
+            EditorGUILayout.BeginHorizontal();
             switch (saveType)
             {
                 case SaveTypes.Float:
+                    EditorGUILayout.LabelField("Saved Float");
                     savedFloat = EditorGUILayout.FloatField(savedFloat);
                     break;
                 
                 case SaveTypes.Int:
+                    EditorGUILayout.LabelField("Saved Int");
                     savedInt = EditorGUILayout.IntField(savedInt);
                     break;
                 
                 case SaveTypes.Vector3:
+                    EditorGUILayout.LabelField("Saved Vector3");
                     savedVector3 = EditorGUILayout.Vector3Field("",savedVector3);
                     break;
                 
                 case SaveTypes.Vector2:
+                    EditorGUILayout.LabelField("Saved Vector2");
                     savedVector2 = EditorGUILayout.Vector2Field("", savedVector2);
                     break;
                 
                 case SaveTypes.String:
+                    EditorGUILayout.LabelField("Saved String");
                     savedString = EditorGUILayout.TextField(savedString);
                     break;
                 
                 case SaveTypes.Bool:
+                    EditorGUILayout.LabelField("Saved Bool");
                     savedBool = EditorGUILayout.Toggle(savedBool);
                     break;
             }
+            EditorGUILayout.EndHorizontal();
 
             if (GUILayout.Button("Add Value"))
             {

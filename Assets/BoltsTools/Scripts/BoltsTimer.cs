@@ -6,6 +6,9 @@ namespace BoltsTools
 {
     public class BoltsTimer
     {
+        static bool isFrozen;
+        static float timeScale;
+        
         /// <summary>
         /// Freezes The Frame
         /// </summary>
@@ -59,6 +62,44 @@ namespace BoltsTools
                 yield return null;
             
             F?.Invoke();
+        }
+
+        
+        /// <summary>
+        /// Freezes/Unfreezes The Game For Debugging
+        /// </summary>
+        public static void FreezeGame()
+        {
+            isFrozen = !isFrozen;
+            if (!isFrozen)
+                timeScale = Time.timeScale;
+            Time.timeScale = isFrozen ? 0 : timeScale;
+        }
+
+        /// <summary>
+        /// Frame Steps When You Called The FreezeGame Void
+        /// </summary>
+        /// <param name="frames">Numbers Of Frames To Step</param>
+        /// <returns></returns>
+        public static IEnumerator FrameStep(int frames)
+        {
+            if (isFrozen)
+            {
+                int stepped = 0;
+                Time.timeScale = 1;
+
+                while (stepped < frames)
+                {
+                    yield return null;
+                    stepped++;
+                }
+
+                Time.timeScale = 0;
+            }
+            else
+            {
+                Debug.LogError("Game Was Not Frozen! Call The FreezeGame Void!");
+            }
         }
     }
 }

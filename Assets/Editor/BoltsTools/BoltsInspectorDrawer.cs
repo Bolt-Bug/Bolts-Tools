@@ -29,7 +29,7 @@ namespace editor.BoltsTools
             Rect fieldRect = new Rect(position.x, y + commentHeight + 2, position.width, fieldHeight);
             EditorGUI.PropertyField(fieldRect, property, label, true);
 
-            EditorGUILayout.Space(comment.space);
+            GetPropertyHeight(property, label);
         }
 
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
@@ -531,7 +531,7 @@ namespace editor.BoltsTools
         
         public override void OnInspectorGUI()
         {
-            EditorGUILayout.HelpBox("Don't Use For Finale Build!!!", MessageType.Warning);
+            EditorGUILayout.HelpBox("Don't Use For Final Build!!!", MessageType.Warning);
             
             BoltsMaterialInstance bm = (BoltsMaterialInstance)this.target;
             

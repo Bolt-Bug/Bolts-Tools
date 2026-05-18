@@ -5,7 +5,7 @@ using UnityEditor;
 namespace editor.BoltsTools
 {
     [CustomEditor(typeof(BoltsDebugMenuSettings))]
-    public class BoltsDebugDrawer : UnityEditor.Editor
+    public class BoltsDebugDrawer : Editor
     {
         public override void OnInspectorGUI()
         {

@@ -1,0 +1,62 @@
+{
+    "name": "Input Action",
+    "maps": [
+        {
+            "name": "Demo",
+            "id": "575326e9-6647-404d-ac44-dfd64c6bc8d9",
+            "actions": [
+                {
+                    "name": "New action",
+                    "type": "Button",
+                    "id": "dac2ec88-3da8-495d-bdf1-1e5ea0ac399b",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "1cdb5bd3-56d7-40f4-952a-92983e7a2d02",
+                    "path": "",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "New action",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        },
+        {
+            "name": "Demo 2",
+            "id": "aa466c90-38e9-4977-a4dc-08a0a1a07f2c",
+            "actions": [
+                {
+                    "name": "New action",
+                    "type": "Button",
+                    "id": "a1d3bdc1-48a9-4cb8-80de-48bf2f34b5d3",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "6f583a24-93f3-4fea-a94e-51249d7c3b04",
+                    "path": "",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "New action",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

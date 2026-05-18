@@ -9,7 +9,7 @@ namespace BoltsTools
     {
         public static BoltsDebugMenu Instance;
         
-        float frames = 0, time = 0;
+        float frames, time;
 
         bool showDebug;
         bool canShowDebug = true;
@@ -120,7 +120,7 @@ namespace BoltsTools
         {
             int index = -1;
             if (buttonsToShow.Count > 0)
-                index = textToShow.FindIndex(x => x.textName == name);
+                index = buttonsToShow.FindIndex(x => x.textName == name);
 
             Rect theSize = new Rect(0, 0, 100, 100);
             if (size.x > 0 || size.y > 0)
@@ -182,7 +182,7 @@ namespace BoltsTools
             if (Input.GetKeyDown(keyToOpenDebug))
                 showDebug = !showDebug;
 
-            if (player == null && LoadBoltsDebugMenu._settings.showPlayerPos)
+            if (player == null && LoadBoltsDebugMenu._settings.showPlayerPos && GameObject.FindGameObjectWithTag(playerTag) != null)
                 player = GameObject.FindGameObjectWithTag(playerTag).transform;
         }
 
