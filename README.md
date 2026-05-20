@@ -1,6 +1,6 @@
 # Bolts Tools
 
-This Is A Colection Ff The Tools Ive Made For Unity
+This Is A Colection Of The Tools Ive Made For Unity
 
 Download It [Here](https://github.com/Bolt-Bug/Boolts-Tools/releases) Or [Here](https://assetstore.unity.com/packages/slug/362682)
 
