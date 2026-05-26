@@ -8,7 +8,7 @@ Read The Documentation [Here](https://github.com/Bolt-Bug/Boolts-Tools/wiki)
 
 ## Installation
 
-### From The Unity Asset Store (Recomended) (Not Avalible Yet)
+### From The Unity Asset Store (Recomended)
 * To Start Go To The [Unity Asset Store](https://assetstore.unity.com/packages/slug/362682) And Click `Add To my Assets`
 * Then In Unity Open the `Package Manager` Window
 * Look For `Bolts Tools`
