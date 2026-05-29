@@ -701,6 +701,143 @@ namespace editor.BoltsTools
         void OnDisable() => CleanupEditor();
         void OnDestroy() => CleanupEditor();
     }
+
+    [CustomEditor(typeof(WorldTransform))]
+    public class WorldTransformDrawer : Editor
+    {
+        bool scaleLocked;
+        Vector3 lastScale;
+        
+        public override void OnInspectorGUI()
+        {
+            WorldTransform wt = (WorldTransform)target;
+            Transform t = wt.transform;
+            
+            serializedObject.Update();
+
+            if (t.parent == null)
+            {
+                EditorGUILayout.HelpBox("Needs To Be A Child", MessageType.Error);
+                return;
+            }
+
+            SyncTransformToComponent(wt, t);
+
+            DrawField(wt.worldPosition, out Vector3 newPosition, out bool posChanged, 
+                val => EditorGUILayout.Vector3Field("World Position", val));
+            
+            DrawField(wt.worldRotation, out Vector3 newRotation, out bool rotChanged, 
+                val => EditorGUILayout.Vector3Field("World Rotation", val));
+
+            bool scaleChanged = DrawLockedScaleField(wt.worldScale, out Vector3 newScale);
+            EditorGUILayout.EndHorizontal();
+            
+            if (posChanged || rotChanged || scaleChanged)
+            {
+                Undo.RecordObject(target, "World Transform Changed");
+                Undo.RecordObject(t, "World Transform Changed");
+
+                if (posChanged)
+                {
+                    wt.worldPosition = newPosition;
+                    t.position = newPosition;
+                }
+
+                if (rotChanged)
+                {
+                    wt.worldRotation = newRotation;
+                    t.eulerAngles = newRotation;
+                }
+
+                if (scaleChanged)
+                {
+                    wt.worldScale = newScale;
+                    SetWorldScale(t, newScale);
+                }
+            }
+
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        void OnSceneGUI()
+        {
+            WorldTransform wt = (WorldTransform)target;
+            Transform t = wt.transform;
+            
+            if(t.parent == null) return;
+
+            if (t.position != wt.worldPosition || t.eulerAngles != wt.worldRotation || t.lossyScale != wt.worldScale)
+            {
+                Undo.RecordObject(target, "Transform Changed");
+                SyncTransformToComponent(wt, t);
+                EditorUtility.SetDirty(target);
+            }
+        }
+
+        void SyncTransformToComponent(WorldTransform wt, Transform t)
+        {
+            wt.worldPosition = t.position;
+            wt.worldRotation = t.eulerAngles;
+            wt.worldScale = t.lossyScale;
+        }
+
+        void DrawField(Vector3 current, out Vector3 result, out bool changed,
+            Func<Vector3, Vector3> drawFunc)
+        {
+            EditorGUI.BeginChangeCheck();
+            result = drawFunc(current);
+            changed = EditorGUI.EndChangeCheck();
+        }
+
+        void SetWorldScale(Transform t, Vector3 worldScale)
+        {
+            Vector3 parentScale = t.parent.lossyScale;
+            t.localScale = new Vector3(
+                worldScale.x / parentScale.x,
+                worldScale.y / parentScale.y,
+                worldScale.z / parentScale.z);
+        }
+
+        bool DrawLockedScaleField(Vector3 currentScale, out Vector3 newScale)
+        {
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("World Scale", GUILayout.Width(EditorGUIUtility.labelWidth - 2));
+            
+            GUILayout.FlexibleSpace();
+
+            GUIContent lockIcon = EditorGUIUtility.IconContent(scaleLocked ? "Linked" : "Unlinked");
+            lockIcon.tooltip = scaleLocked ? "Unlock proportional scale" : "Lock proportional scale";
+
+            if (GUILayout.Button(lockIcon, GUIStyle.none, GUILayout.Width(20), GUILayout.Height(20)))
+            {
+                scaleLocked = !scaleLocked;
+                lastScale = currentScale;
+            }
+            
+            EditorGUI.BeginChangeCheck();
+            EditorGUI.indentLevel++;
+            newScale = EditorGUILayout.Vector3Field("", currentScale);
+            EditorGUI.indentLevel--;
+            bool changed = EditorGUI.EndChangeCheck();
+
+            if (changed && scaleLocked && lastScale != Vector3.zero)
+            {
+                Vector3 ratio = new Vector3(
+                    lastScale.x != 0 ? newScale.x / lastScale.x : 1,
+                    lastScale.y != 0 ? newScale.y / lastScale.y : 1,
+                    lastScale.z != 0 ? newScale.z / lastScale.z : 1);
+
+                float dominantRatio = ratio.x != 1 ? ratio.x : ratio.y != 1 ? ratio.y : ratio.z;
+
+                newScale = lastScale * dominantRatio;
+            }
+
+            if (changed)
+                lastScale = newScale;
+
+            return changed;
+        }
+    }
     
     public abstract class NonWindowTools
     {

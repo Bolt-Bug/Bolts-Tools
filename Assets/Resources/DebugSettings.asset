@@ -15,5 +15,10 @@ MonoBehaviour:
   keyToOpenDebug: 284
   showFPS: 1
   showPlayerPos: 0
+  saveLog: 0
+  logPath: Assets/Logs
+  unlockCursor: 1
   playerTag: Player
   keyToOpenCommands: 283
+  showDebug: 1
+  showCommands: 1

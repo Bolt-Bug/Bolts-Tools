@@ -164,6 +164,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   saveString: Saved String
+  addText: 1
 --- !u!1 &248082984
 GameObject:
   m_ObjectHideFlags: 0
@@ -212,6 +213,8 @@ MonoBehaviour:
   keyToOpenDebug: 284
   showFPS: 1
   showPlayerPos: 0
+  saveLog: 1
+  logPath: 
   playerTag: Player
   player: {fileID: 0}
 --- !u!4 &248082987

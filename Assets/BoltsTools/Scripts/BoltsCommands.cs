@@ -11,16 +11,11 @@ namespace BoltsTools
     {
         public static BoltsCommands command;
 
+        public BoltsDebugMenuSettings settings;
+
         static readonly List<Command> commands = new();
         public List<Command> publicCommands = new();
-
-        public KeyCode keyToOpenCommands = KeyCode.F2;
         
-        [BoltsToolTip("Shows The Cursor When Typing A Command")]
-        public bool unlockCursor = true;
-
-        bool showCommands = true;
-
         public static bool isTyping;
 
         int selectedSuggestionIndex;
@@ -36,15 +31,15 @@ namespace BoltsTools
 
         void Update()
         {
-            if(!showCommands) return;
+            if(!settings.showCommands) return;
             
-            if (Input.GetKeyDown(keyToOpenCommands) && !isTyping)
+            if (Input.GetKeyDown(settings.keyToOpenCommands) && !isTyping)
             {
                 isTyping = true;
                 GUI.FocusControl("Command");
             }
 
-            if (isTyping && unlockCursor)
+            if (isTyping && settings.unlockCursor)
             {
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
@@ -433,14 +428,10 @@ namespace BoltsTools
             AddCommand("help", "ShowCommands", this, "Shows All Commands");
         }
 
-        void Reset()
+        public void Reset()
         {
             if (LoadBoltsDebugMenu._settings != null)
-            {
-                unlockCursor = LoadBoltsDebugMenu._settings.unlockCursor;
-                keyToOpenCommands = LoadBoltsDebugMenu._settings.keyToOpenCommands;
-                showCommands = LoadBoltsDebugMenu._settings.showCommands;
-            }
+                settings = LoadBoltsDebugMenu._settings;
         }
 
         [Serializable]

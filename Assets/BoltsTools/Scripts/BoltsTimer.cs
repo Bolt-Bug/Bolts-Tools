@@ -101,5 +101,31 @@ namespace BoltsTools
                 Debug.LogError("Game Was Not Frozen! Call The FreezeGame Void!");
             }
         }
+
+        /// <summary>
+        /// Waits X Frames And Checks If A Condition Is True And Then Runs An Action
+        /// </summary>
+        /// <param name="condition">Condition To Run The Action</param>
+        /// <param name="frames">Max Frames To Wait Before Stoping</param>
+        /// <param name="toDo">Action To Do</param>
+        /// <returns></returns>
+        public static IEnumerator HoldInput(Func<bool> condition, int frames, Action toDo)
+        {
+            int framesWaited = 0;
+            while (framesWaited <= frames)
+            {
+                framesWaited++;
+                
+                Debug.Log(framesWaited);
+
+                yield return new WaitForEndOfFrame();
+                
+                if(condition())
+                {
+                    toDo?.Invoke();
+                    break;
+                }
+            }
+        }
     }
 }

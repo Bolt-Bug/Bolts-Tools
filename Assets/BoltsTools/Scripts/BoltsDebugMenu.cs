@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEditor;
 
@@ -8,20 +9,17 @@ namespace BoltsTools
     public class BoltsDebugMenu : MonoBehaviour
     {
         public static BoltsDebugMenu Instance;
+
+        public BoltsDebugMenuSettings settings;
         
-        float frames, time;
+        float currentFps, frameCount, time;
+
+        readonly Queue<float> avg10sFrames = new();
+        readonly Queue<float> avg1mFrames = new();
 
         bool showDebug;
-        bool canShowDebug = true;
 
-        static readonly List<DebugText> textToShow = new();
-        static readonly List<DebugButton> buttonsToShow = new();
-
-        public KeyCode keyToOpenDebug = KeyCode.F3;
-        
-        public bool showFPS, showPlayerPos;
-        
-        public string playerTag = "Player";
+        string currentLogName;
         
         public Transform player;
         
@@ -29,7 +27,7 @@ namespace BoltsTools
         {
             if(!showDebug) return;
 
-            if (showPlayerPos && player != null)
+            if (settings.showPlayerPos && player != null)
             {
                 if (player == null)
                 {
@@ -38,10 +36,8 @@ namespace BoltsTools
                 }
                 
                 Vector3 playerPos = player.position;
-                
-                GUIStyle style = new GUIStyle();
-                
-                style.font = Font.CreateDynamicFontFromOSFont("Courier New", 25);
+
+                GUIStyle style = new GUIStyle() { font = Font.CreateDynamicFontFromOSFont("Courier New", 25)};
 
                 string text = string.Format("XYZ: X:{0,-8:F2}  Y:{1,-8:F2}  Z:{2,-8:F2}", playerPos.x, playerPos.y,
                     playerPos.z);
@@ -53,142 +49,72 @@ namespace BoltsTools
                 GUI.TextArea(playerPosRect, text, style);
             }
             
-            if (showFPS)
+            if (settings.showFPS)
             {
-                Rect fpsRect = new(50, 50, 225,75);
-                GUI.TextArea(fpsRect, $"<size=50>FPS: {frames}", new GUIStyle(){alignment = TextAnchor.MiddleLeft});
-            }
-
-            for (int i = 0; i < textToShow.Count; i++)
-            {
-                DebugText currentText = textToShow[i];
-                if (currentText.size.y == 0)
-                    currentText.size.y = 100 * (i + 1);
+                GUIStyle fpsStyle = new GUIStyle(GUI.skin.box) {alignment = TextAnchor.MiddleLeft, richText = true, fontSize = 25};
                 
-                GUI.Box(currentText.size, currentText.value);
+                Rect fpsRect = new(50, 50, 200,75);
+                GUI.TextArea(fpsRect, $"FPS: {currentFps:F1}", fpsStyle);
+
+                Rect avg10sFps = new(50, 150, 250, 75);
+                GUI.TextArea(avg10sFps, $"Avg 10 Sec: {GetAverageFPS(avg10sFrames):f1}", fpsStyle);
+
+                Rect avg1mFps = new Rect(50, 250, 250, 75);
+                GUI.TextArea(avg1mFps, $"Avg 1 Min: {GetAverageFPS(avg1mFrames):F1}", fpsStyle);
             }
-
-            for (int i = 0; i < buttonsToShow.Count; i++)
-            {
-                DebugButton currentButton = buttonsToShow[i];
-
-                if (currentButton.size.y == 0)
-                    currentButton.size.y = 100 * (i + 1);
-                
-                float newXPos = Screen.width - currentButton.size.width - currentButton.size.x;
-                Rect newRect = currentButton.size;
-                newRect.x = newXPos;
-                
-                GUILayout.BeginArea(newRect);
-                if (GUILayout.Button(currentButton.value)) currentButton.onClick.Invoke();
-                GUILayout.EndArea();
-            }
-        }
-
-        /// <summary>
-        /// Add Text To The Debug Screen
-        /// </summary>
-        /// <param name="name">The Name Of The Text</param>
-        /// <param name="value">What The Text Should Say</param>
-        /// <param name="size">The Size And Position. Can Be Left Empty></param>
-        public static void BoltsDebugAddText(string name, string value, Rect size = new Rect())
-        {
-            int index = -1;
-            if (textToShow.Count > 0)
-                index = textToShow.FindIndex(x => x.textName == name);
-
-            Rect theSize = new Rect(0, 0, 100, 100);
-            if (size.x > 0 || size.y > 0)
-                theSize = size;
-            
-            if (index > -1)
-                textToShow[index].value = value;
-            else
-                textToShow.Add(new(){textName = name, value = value, size = theSize});
-        }
-
-        
-        /// <summary>
-        /// Add A Button To The Debug Screen
-        /// </summary>
-        /// <param name="name">The Name Of The Button</param>
-        /// <param name="value">What The Button Should Say</param>
-        /// <param name="onClick">What Actions To Do When Clicked</param>
-        /// <param name="size">The Size And Position. Can Be Left Empty></param>
-        /// <example>BoltsDebugAddButton("Teleport", "Teleport The Player", TeleportPlayer(), new Rect(100, 100, 100, 100))</example>
-        public static void BoltsDebugAddButton(string name, string value, Action onClick, Rect size = new Rect())
-        {
-            int index = -1;
-            if (buttonsToShow.Count > 0)
-                index = buttonsToShow.FindIndex(x => x.textName == name);
-
-            Rect theSize = new Rect(0, 0, 100, 100);
-            if (size.x > 0 || size.y > 0)
-                theSize = size;
-
-            if (index > -1)
-            {
-                buttonsToShow[index].value = value;
-                buttonsToShow[index].onClick = onClick;
-            }
-            else
-                buttonsToShow.Add(new(){textName = name, value = value, onClick = onClick, size = theSize});
-        }
-        
-        /// <summary>
-        /// Add A Button To The Debug Screen
-        /// </summary>
-        /// <param name="name">The Name Of The Text To Remove</param>
-        /// <example>BoltsDebugRemoveText("playerSpeed)</example>
-        public static void BoltsDebugRemoveText(string name)
-        {
-            int index = -1;
-            index = textToShow.FindIndex(x => x.textName == name);
-            
-            if(index > -1)
-                textToShow.RemoveAt(index);
-            else
-                Debug.LogError($"Could Not Find Debug Text Named {name}");
-        }
-
-        /// <summary>
-        /// Add A Button To The Debug Screen
-        /// </summary>
-        /// <param name="name">The Name Of The Button To Remove</param>
-        /// <example>BoltsDebugRemoveButton("killPlayer")</example>
-        public static void BoltsDebugRemoveButton(string name)
-        {
-            int index = -1;
-            index = buttonsToShow.FindIndex(x => x.textName == name);
-            
-            if(index > -1)
-                buttonsToShow.RemoveAt(index);
-            else
-                Debug.LogError($"Could Not Find Debug Button Named {name}");
         }
         
         void Update()
         {
-            if(!canShowDebug) return;
+            if(settings == null) return;
             
-            frames = (float)Decimal.Round((decimal)(1 / Time.unscaledDeltaTime));
-            time += Time.unscaledDeltaTime;
-            if (time >= 1)
+            if(!settings.showCommands) return;
+
+            if (settings.showFPS)
             {
-                frames = 0;
-                time = 0;
+                time += Time.unscaledDeltaTime;
+                currentFps = 1 / Time.unscaledDeltaTime;
+                frameCount++;
+            
+                if (time >= 1)
+                {
+                    float avgFpsThisSecond = frameCount / time;
+                    avg10sFrames.Enqueue(avgFpsThisSecond);
+                    avg1mFrames.Enqueue(avgFpsThisSecond);
+
+                    if (avg10sFrames.Count > 10)
+                        avg10sFrames.Dequeue();
+
+                    if (avg1mFrames.Count > 60)
+                        avg1mFrames.Dequeue();
+
+                    time -= 1;
+                    frameCount = 0;
+                }
             }
 
-            if (Input.GetKeyDown(keyToOpenDebug))
+            if (Input.GetKeyDown(settings.keyToOpenDebug))
                 showDebug = !showDebug;
 
-            if (player == null && LoadBoltsDebugMenu._settings.showPlayerPos && GameObject.FindGameObjectWithTag(playerTag) != null)
-                player = GameObject.FindGameObjectWithTag(playerTag).transform;
+            if (player == null && LoadBoltsDebugMenu._settings.showPlayerPos && GameObject.FindGameObjectWithTag(settings.playerTag) != null)
+                player = GameObject.FindGameObjectWithTag(settings.playerTag).transform;
         }
 
         void Awake()
         {
-            LoadBoltsDebugMenu.Initialize();
+            Reset();
+
+            if (settings.saveLog)
+            {
+                if (!Directory.Exists(settings.logPath))
+                    Directory.CreateDirectory(settings.logPath);
+
+                currentLogName = $"/{DateTime.Now:HH:m:s:} Log.txt";
+                
+                File.WriteAllText(settings.logPath + currentLogName, "");
+
+                Application.logMessageReceived += AddLog;
+            }
             
             if (Instance == null)
                 Instance = this;
@@ -196,7 +122,7 @@ namespace BoltsTools
                 Destroy(gameObject);
         }
 
-        void Reset()
+        public void Reset()
         {
             LoadBoltsDebugMenu.Initialize();
             
@@ -204,36 +130,36 @@ namespace BoltsTools
                 Instance = this;
             else if(Instance != this)
                 Destroy(gameObject);
-            
+
             if (LoadBoltsDebugMenu._settings != null)
-            {
-                showFPS = LoadBoltsDebugMenu._settings.showFPS;
-                showPlayerPos = LoadBoltsDebugMenu._settings.showPlayerPos;
-                keyToOpenDebug = LoadBoltsDebugMenu._settings.keyToOpenDebug;
-                playerTag = LoadBoltsDebugMenu._settings.playerTag;
-                canShowDebug = LoadBoltsDebugMenu._settings.showDebug;
-            }
+                settings = LoadBoltsDebugMenu._settings;
         }
-    }
 
-    [Serializable]
-    class DebugText
-    {
-        public string textName;
-        public string value;
+        public static void AddLog(string logString, string stackTrace, LogType type)
+        {
+            string entry = $"[{type}] {DateTime.Now:HH:m:s} - {logString}";
 
-        public Rect size = new Rect(100, 100, 100, 100);
-    }
+            if (type == LogType.Error || type == LogType.Exception)
+                entry += $"\n{stackTrace}";
+            
+            File.AppendAllText( Instance.settings.logPath + Instance.currentLogName, entry + "\n");
+        }
 
-    [Serializable]
-    class DebugButton
-    {
-        public string textName;
-        public string value;
+        float GetAverageFPS(Queue<float> queue)
+        {
+            if (queue.Count == 0) return 0;
 
-        public Rect size = new Rect(100, 100, 100, 100);
-        
-        public Action onClick;
+            float sum = 0;
+            foreach (float val in queue)
+                sum += val;
+
+            return sum / queue.Count;
+        }
+
+        void OnDestroy()
+        {
+            Application.logMessageReceived -= AddLog;
+        }
     }
     
     static class LoadBoltsDebugMenu
@@ -247,9 +173,9 @@ namespace BoltsTools
         {
             Initialize();
         }
-#endif
         
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+#endif
         public static void Initialize()
         {
             if(_settings != null || _isLoading)
