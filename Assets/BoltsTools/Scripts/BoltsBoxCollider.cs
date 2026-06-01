@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-[ExecuteAlways][AddComponentMenu("Bolts Tools/BoltsBoxCollider")]
+[ExecuteAlways][AddComponentMenu("Bolts Tools/Bolts Box Collider")]
 public class BoltsBoxCollider : MonoBehaviour
 {
     public BoxCollider boxCollider { get; private set; }

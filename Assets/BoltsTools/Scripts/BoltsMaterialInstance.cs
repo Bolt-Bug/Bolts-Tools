@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[AddComponentMenu("Bolts Tools/BoltsMaterialInstance")]
+[AddComponentMenu("Bolts Tools/Bolts Material Instance")]
 public class BoltsMaterialInstance : MonoBehaviour
 {
     public Renderer targetRenderer;

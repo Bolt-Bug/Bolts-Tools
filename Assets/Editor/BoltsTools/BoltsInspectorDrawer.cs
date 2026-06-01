@@ -702,7 +702,7 @@ namespace editor.BoltsTools
         void OnDestroy() => CleanupEditor();
     }
 
-    [CustomEditor(typeof(WorldTransform))]
+    [CustomEditor(typeof(BoltsWorldTransform))]
     public class WorldTransformDrawer : Editor
     {
         bool scaleLocked;
@@ -710,7 +710,7 @@ namespace editor.BoltsTools
         
         public override void OnInspectorGUI()
         {
-            WorldTransform wt = (WorldTransform)target;
+            BoltsWorldTransform wt = (BoltsWorldTransform)target;
             Transform t = wt.transform;
             
             serializedObject.Update();
@@ -761,7 +761,7 @@ namespace editor.BoltsTools
 
         void OnSceneGUI()
         {
-            WorldTransform wt = (WorldTransform)target;
+            BoltsWorldTransform wt = (BoltsWorldTransform)target;
             Transform t = wt.transform;
             
             if(t.parent == null) return;
@@ -774,7 +774,7 @@ namespace editor.BoltsTools
             }
         }
 
-        void SyncTransformToComponent(WorldTransform wt, Transform t)
+        void SyncTransformToComponent(BoltsWorldTransform wt, Transform t)
         {
             wt.worldPosition = t.position;
             wt.worldRotation = t.eulerAngles;

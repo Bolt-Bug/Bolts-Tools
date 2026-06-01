@@ -6,6 +6,7 @@ using UnityEditor;
 
 namespace BoltsTools
 {
+    [AddComponentMenu("Bolts Tools/Bolts Debug Menu")]
     public class BoltsDebugMenu : MonoBehaviour
     {
         public static BoltsDebugMenu Instance;

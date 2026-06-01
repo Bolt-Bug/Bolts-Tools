@@ -2,7 +2,8 @@ using UnityEngine;
 
 namespace BoltsTools
 {
-    public class WorldTransform : MonoBehaviour
+    [AddComponentMenu("Bolts Tools/Bolts World Transform")]
+    public class BoltsWorldTransform : MonoBehaviour
     {
         public Vector3 worldPosition;
         public Vector3 worldRotation;

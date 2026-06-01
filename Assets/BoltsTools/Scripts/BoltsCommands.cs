@@ -7,6 +7,7 @@ using Debug = UnityEngine.Debug;
 
 namespace BoltsTools
 {
+    [AddComponentMenu("Bolts Tools/Bolts Commands")]
     public class BoltsCommands : MonoBehaviour
     {
         public static BoltsCommands command;
