@@ -28,6 +28,9 @@ public class BoltsToolsDemo : MonoBehaviour
     [BoltsSave(SavedVariableType.Any, 0)]
     public string savedString;
     
+    [BoltsStaticViewer]
+    public static string staticString = "This String Is Static";
+    
     void Start() =>
         BoltsCommands.AddCommand("DemoMove", () => BoltsDebugMenu.Instance.player.transform.position = Vector3.one,
             "Moves The Player");
