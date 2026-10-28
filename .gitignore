@@ -76,3 +76,5 @@ crashlytics-build.properties
 /.idea
 /.idea
 /Packages
+/Packages
+/Packages/com.unity.asset-store-tools
