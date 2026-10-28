@@ -422,7 +422,7 @@ namespace BoltsTools
                 return;
             }
             
-            // Does "int = 1" So That There Is No Empty Spaces
+            // Does "int = 1" So That There Is No Empty Spaces When Drawing
             string allCommands = $"Command: {commands[0].name}    Description: {commands[0].description}";
             for (int i = 1; i < commands.Count; i++)
             {

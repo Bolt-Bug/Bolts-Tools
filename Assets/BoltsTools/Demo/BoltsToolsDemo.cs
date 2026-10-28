@@ -1,4 +1,3 @@
-using System;
 using BoltsTools;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -30,6 +29,9 @@ public class BoltsToolsDemo : MonoBehaviour
     
     [BoltsStaticViewer]
     public static string staticString = "This String Is Static";
+    
+    [BoltsStaticViewer(Editable = true)]
+    public static string editableString = "This String Is Editable";
     
     void Start() =>
         BoltsCommands.AddCommand("DemoMove", () => BoltsDebugMenu.Instance.player.transform.position = Vector3.one,

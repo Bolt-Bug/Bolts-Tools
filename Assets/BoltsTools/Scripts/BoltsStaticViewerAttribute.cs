@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace BoltsTools
 {
-    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class BoltsStaticViewerAttribute : PropertyAttribute
     {
         public readonly string MemberName;

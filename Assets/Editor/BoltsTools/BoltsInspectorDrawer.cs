@@ -476,6 +476,17 @@ namespace editor.BoltsTools
             BoltsBoxCollider customBC = (BoltsBoxCollider)target;
 
             DrawDefaultInspector();
+            
+            if(customBC.showBoxCollider)
+            {
+                if (GUILayout.Button("Hide BoxCollider"))
+                    customBC.showBoxCollider = false;
+            }
+            else
+            {
+                if(GUILayout.Button("Show BoxCollider"))
+                    customBC.showBoxCollider = true;
+            }
 
             SerializedProperty px = serializedObject.FindProperty("px");
             SerializedProperty py = serializedObject.FindProperty("py");
@@ -506,10 +517,10 @@ namespace editor.BoltsTools
 
             if (customBC.boxCollider != null)
             {
-                customBC.boxCollider.hideFlags = HideFlags.HideInInspector;
+                customBC.boxCollider.hideFlags = customBC.showBoxCollider  ? HideFlags.None : HideFlags.HideInInspector;
 
                 if (boxColliderEditor == null)
-                    boxColliderEditor = Editor.CreateEditor(customBC.boxCollider);
+                    boxColliderEditor = CreateEditor(customBC.boxCollider);
 
                 boxColliderEditor.DrawDefaultInspector();
             }
